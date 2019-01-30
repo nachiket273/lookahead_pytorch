@@ -23,7 +23,7 @@ class _LRScheduler(object):
                     raise KeyError("param 'initial_lr' is not specified "
                                    "in param_groups[{}] when resuming an optimizer".format(i))
         self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
-	self.base_wd = list(map(lambda group: group.get('initial_weight_decay', None), optimizer.param_groups))
+	self.base_wds = list(map(lambda group: group.get('initial_weight_decay', None), optimizer.param_groups))
         self.step(last_epoch + 1)
         self.last_epoch = last_epoch
 
@@ -130,9 +130,9 @@ class LambdaLR(_LRScheduler):
                 for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs)]
 
     def get_wd(self):
-	return [initial_weight_decay * lmbda(self.last_epoch)
-		if base_weight_decay not None
-		for lmbda, base_weight_decay in zip(self.lr_lambdas, self.base_weight_decays)]
+	return [base_wd * lmbda(self.last_epoch)
+		if base_wd not None
+		for lmbda, base_wd in zip(self.lr_lambdas, self.base_wds)]
 
 class CosineAnnealingLR(_LRScheduler):
     r"""Set the learning rate of each parameter group using a cosine annealing
@@ -181,7 +181,7 @@ class CosineAnnealingLR(_LRScheduler):
 
     def get_wd(self):
 	if self.last_epoch == 0:
-	    return self.base_weight_decays
+	    return self.base_wds
 	return [(1 + math.cos(math.pi * self.last_epoch / self.T_max)) /
                 (1 + math.cos(math.pi * (self.last_epoch - 1) / self.T_max)) *
                 (group['weight_decay'] - self.eta_min) + self.eta_min

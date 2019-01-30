@@ -90,6 +90,8 @@ class SGDW(Optimizer):
                 if p.grad is None:
                     continue
                 d_p = p.grad.data
+                
+                old = p.data.clone()
                 #if weight_decay != 0:
                 #    d_p.add_(weight_decay, p.data)
                 if momentum != 0:
@@ -105,9 +107,9 @@ class SGDW(Optimizer):
                     else:
                         d_p = buf
 
-                if weight_decay != 0:
-                    p.data.add_(-weight_decay, p.data)
-
                 p.data.add_(-group['lr'], d_p)
+                
+                if weight_decay != 0:
+                    p.data.add_(-weight_decay, old)
 
         return loss
