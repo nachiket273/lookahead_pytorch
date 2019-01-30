@@ -16,11 +16,11 @@ class AdamW(Optimizer):
             running averages of gradient and its square (default: (0.9, 0.999))
         eps (float, optional): term added to the denominator to improve
             numerical stability (default: 1e-8)
-        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        weight_decay (float, optional): weight decay (default: 0)
         amsgrad (boolean, optional): whether to use the AMSGrad variant of this
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
-
+           
     .. _DECOUPLED WEIGHT DECAY REGULARIZATION:
         https://arxiv.org/pdf/1711.05101.pdf
     """
@@ -103,6 +103,7 @@ class AdamW(Optimizer):
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
                 old = p.data.clone()
+                    
                 p.data.addcdiv_(-step_size, exp_avg, denom)
                 
                 if group['weight_decay'] != 0:
