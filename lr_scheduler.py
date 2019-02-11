@@ -4,7 +4,7 @@ import torch
 from torch._six import inf
 from collections import Counter
 from functools import partial
-from .optimizer import Optimizer
+from  torch.optim.optimizer import Optimizer
 
 
 class _LRScheduler(object):
@@ -16,14 +16,14 @@ class _LRScheduler(object):
         if last_epoch == -1:
             for group in optimizer.param_groups:
                 group.setdefault('initial_lr', group['lr'])
-		group.setdefault('initial_weight_decay', group['weight_decay'])
+                group.setdefault('initial_weight_decay', group['weight_decay'])
         else:
             for i, group in enumerate(optimizer.param_groups):
                 if 'initial_lr' not in group:
                     raise KeyError("param 'initial_lr' is not specified "
                                    "in param_groups[{}] when resuming an optimizer".format(i))
         self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
-	self.base_wds = list(map(lambda group: group.get('initial_weight_decay', None), optimizer.param_groups))
+        self.base_wds = list(map(lambda group: group.get('initial_weight_decay', None), optimizer.param_groups))
         self.step(last_epoch + 1)
         self.last_epoch = last_epoch
 
@@ -48,7 +48,7 @@ class _LRScheduler(object):
         raise NotImplementedError
 
     def get_wd(self):
-	raise NotImplementedError
+	    raise NotImplementedError
 
     def step(self, epoch=None):
         if epoch is None:
@@ -56,8 +56,8 @@ class _LRScheduler(object):
         self.last_epoch = epoch
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
-	for param_group, wd in zip(self.optimizer.param_groups, self.get_wd()):
-	    param_group['weight_decay'] = wd
+        for param_group, wd in zip(self.optimizer.param_groups, self.get_wd()):
+	        param_group['weight_decay'] = wd
 
 
 class LambdaLR(_LRScheduler):
@@ -130,9 +130,8 @@ class LambdaLR(_LRScheduler):
                 for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs)]
 
     def get_wd(self):
-	return [base_wd * lmbda(self.last_epoch)
-		if base_wd not None
-		for lmbda, base_wd in zip(self.lr_lambdas, self.base_wds)]
+        return [base_wd * lmbda(self.last_epoch) if base_wd else None
+		    for lmbda, base_wd in zip(self.lr_lambdas, self.base_wds)]
 
 class CosineAnnealingLR(_LRScheduler):
     r"""Set the learning rate of each parameter group using a cosine annealing
@@ -180,9 +179,9 @@ class CosineAnnealingLR(_LRScheduler):
                 for group in self.optimizer.param_groups]
 
     def get_wd(self):
-	if self.last_epoch == 0:
-	    return self.base_wds
-	return [(1 + math.cos(math.pi * self.last_epoch / self.T_max)) /
+	    if self.last_epoch == 0:
+	        return self.base_wds
+	    return [(1 + math.cos(math.pi * self.last_epoch / self.T_max)) /
                 (1 + math.cos(math.pi * (self.last_epoch - 1) / self.T_max)) *
                 (group['weight_decay'] - self.eta_min) + self.eta_min
                 for group in self.optimizer.param_groups]
