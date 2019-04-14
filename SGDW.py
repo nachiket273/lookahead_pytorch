@@ -91,7 +91,7 @@ class SGDW(Optimizer):
                     continue
                 d_p = p.grad.data
                 
-                old = p.data.clone()
+                old = torch.clone(p.data).detach()
                 #if weight_decay != 0:
                 #    d_p.add_(weight_decay, p.data)
                 if momentum != 0:

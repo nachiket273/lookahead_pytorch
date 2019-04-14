@@ -84,6 +84,8 @@ class AdamW(Optimizer):
 
                 state['step'] += 1
 
+                old = torch.clone(p.data).detach()
+
                 #if group['weight_decay'] != 0:
                 #    grad.add_(group['weight_decay'], p.data)
 
@@ -102,7 +104,7 @@ class AdamW(Optimizer):
                 bias_correction2 = 1 - beta2 ** state['step']
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
-                old = p.data.clone()
+                #old = p.data.clone()
                     
                 p.data.addcdiv_(-step_size, exp_avg, denom)
                 
