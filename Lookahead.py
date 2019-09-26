@@ -1,6 +1,7 @@
 import torch
 from torch.optim import Optimizer
 from collections import defaultdict
+import itertools as it
 
 
 class Lookahead(Optimizer):
@@ -35,14 +36,16 @@ class Lookahead(Optimizer):
     
     def step(self, closure=None):
         loss = self.optimizer.step(closure)
-        for group, slow_Weight in zip(self.param_groups, self.slow_weights):
+
+        for group, slow_weight in zip(self.param_groups, self.slow_weights):
             group['k_counter'] += 1
+            if group['k_counter'] < self.k:
+                continue
             if group['k_counter'] == self.k:
-                for param, weight in zip(group['params'], slow_Weight):
+                for param, weight in zip(group['params'], slow_weight):
                     weight.data.add_(self.alpha, (param.data - weight.data))
                     param.data.copy_(weight.data)
                 group['k_counter'] = 0
-
         return loss
 
     def state_dict(self):
@@ -68,3 +71,7 @@ class Lookahead(Optimizer):
         }
         super(Lookahead, self).load_state_dict(slow_dict)
         self.optimizer.load_state_dict(fast_dict)
+
+    def add_param_group(self, param_group):
+        param_group['k_counter'] = 0
+        self.optimizer.add_param_group(param_group)
