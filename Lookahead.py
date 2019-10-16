@@ -1,8 +1,6 @@
 import torch
 from torch.optim import Optimizer
 from collections import defaultdict
-import itertools as it
-
 
 class Lookahead(Optimizer):
     r'''Implements Lookahead optimizer.
@@ -28,50 +26,33 @@ class Lookahead(Optimizer):
         self.optimizer = optimizer
         self.alpha = alpha
         self.k = k
+        self.k_counter = 0
         self.param_groups = self.optimizer.param_groups
         self.state = defaultdict(dict)
-        for group in self.param_groups:
-            group['k_counter'] = 0
         self.slow_weights = [[param.clone().detach() for param in group['params']] for group in self.param_groups]
     
     def step(self, closure=None):
         loss = self.optimizer.step(closure)
-
-        for group, slow_weight in zip(self.param_groups, self.slow_weights):
-            group['k_counter'] += 1
-            if group['k_counter'] < self.k:
-                continue
-            if group['k_counter'] == self.k:
+        self.k_counter += 1
+        if self.k_counter >= self.k:
+            for group, slow_weight in zip(self.param_groups, self.slow_weights):
                 for param, weight in zip(group['params'], slow_weight):
                     weight.data.add_(self.alpha, (param.data - weight.data))
                     param.data.copy_(weight.data)
-                group['k_counter'] = 0
+            self.k_counter = 0
         return loss
 
-    def state_dict(self):
-        fast_dict = self.optimizer.state_dict()
-        fast_state = fast_dict['state']
-        param_groups = fast_dict['param_groups']
-        slow_state = {(id(k) if isinstance(k, torch.Tensor) else k): v
-                        for k, v in self.state.items()}
+    def __getstate__(self):
         return {
-            'fast_state': fast_state,
-            'param_groups': param_groups,
-            'slow_state': slow_state
+            'state': self.state,
+            'optimizer': self.optimizer,
+            'alpha': self.alpha,
+            'k': self.k,
+            'k_counter': self.k_counter
         }
+
+    def state_dict(self):
+        return self.optimizer.state_dict()
 
     def load_state_dict(self, state_dict):
-        fast_dict = {
-            'state': state_dict['fast_state'],
-            'param_groups': state_dict['param_groups']
-        }
-        slow_dict = {
-            'state': state_dict['slow_state'],
-            'param_groups': state_dict['param_groups']
-        }
-        super(Lookahead, self).load_state_dict(slow_dict)
-        self.optimizer.load_state_dict(fast_dict)
-
-    def add_param_group(self, param_group):
-        param_group['k_counter'] = 0
-        self.optimizer.add_param_group(param_group)
+        self.optimizer.load_state_dict(state_dict)
