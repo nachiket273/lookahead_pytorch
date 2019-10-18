@@ -22,7 +22,7 @@ class RAdam(Optimizer):
             (default: False)
     """
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False):
+                 weight_decay=0, amsgrad=False, sma_thresh=5):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -34,6 +34,9 @@ class RAdam(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, amsgrad=amsgrad)
         super(RAdam, self).__init__(params, defaults)
+
+        self.radam_buffer = [[None,None,None] for ind in range(10)]
+        self.sma_thresh = sma_thresh
 
     def __setstate__(self, state):
         super(RAdam, self).__setstate__(state)
@@ -82,17 +85,27 @@ class RAdam(Optimizer):
                 exp_avg.mul_(beta1).add_(1 - beta1, grad)
                 exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
 
-                sma_max_len = 2/(1-beta2) - 1  
-                beta2_t = beta2 ** state['step']
-                sma_t = sma_max_len - 2 * state['step'] * beta2_t /(1 - beta2_t)
+                buffer = self.radam_buffer[int(state['step']%10)]
 
-                if sma_t > 4 :
-                    rt = math.sqrt(((sma_t - 4) * (sma_t - 2) * sma_max_len)/((sma_max_len -4) * (sma_max_len - 2) * sma_t))
-                    denom = exp_avg_sq.sqrt().add_(group['eps'])
-                    step_size = group['lr'] * rt * math.sqrt((1 - beta2_t)) / (1 - beta1 ** state['step'])
+                if buffer[0] == state['step']:
+                    sma_t, step_size = buffer[1], buffer[2]
+                else:                 
+                    sma_max_len = 2/(1-beta2) - 1  
+                    beta2_t = beta2 ** state['step']
+                    sma_t = sma_max_len - 2 * state['step'] * beta2_t /(1 - beta2_t)
+                    buffer[1] = sma_t
+
+                    if sma_t > self.sma_thresh :
+                        rt = math.sqrt(((sma_t - 4) * (sma_t - 2) * sma_max_len)/((sma_max_len -4) * (sma_max_len - 2) * sma_t))
+                        denom = exp_avg_sq.sqrt().add_(group['eps'])
+                        step_size = group['lr'] * rt * math.sqrt((1 - beta2_t)) / (1 - beta1 ** state['step'])                      
+                    else:
+                        step_size = group['lr'] / (1 - beta1 ** state['step'])                        
+                    buffer[2] = step_size
+
+                if sma_t > self.sma_thresh :
                     p.data.addcdiv_(-step_size, exp_avg, denom)
                 else:
-                    step_size = group['lr'] / (1 - beta1 ** state['step'])
                     p.data.add_(-step_size, exp_avg)
 
                 if group['weight_decay'] != 0:
