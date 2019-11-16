@@ -35,7 +35,7 @@ class RAdam(Optimizer):
                         weight_decay=weight_decay, amsgrad=amsgrad)
         super(RAdam, self).__init__(params, defaults)
 
-        self.radam_buffer = [[None,None,None] for ind in range(10)]
+        self.radam_buffer = [[None, None, None] for ind in range(10)]
         self.sma_thresh = sma_thresh
 
     def __setstate__(self, state):
@@ -86,6 +86,7 @@ class RAdam(Optimizer):
                 exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
 
                 buffer = self.radam_buffer[int(state['step']%10)]
+                denom = exp_avg_sq.sqrt().add_(group['eps'])
 
                 if buffer[0] == state['step']:
                     sma_t, step_size = buffer[1], buffer[2]
@@ -93,11 +94,11 @@ class RAdam(Optimizer):
                     sma_max_len = 2/(1-beta2) - 1  
                     beta2_t = beta2 ** state['step']
                     sma_t = sma_max_len - 2 * state['step'] * beta2_t /(1 - beta2_t)
+                    buffer[0] = state['step']
                     buffer[1] = sma_t
 
                     if sma_t > self.sma_thresh :
                         rt = math.sqrt(((sma_t - 4) * (sma_t - 2) * sma_max_len)/((sma_max_len -4) * (sma_max_len - 2) * sma_t))
-                        denom = exp_avg_sq.sqrt().add_(group['eps'])
                         step_size = group['lr'] * rt * math.sqrt((1 - beta2_t)) / (1 - beta1 ** state['step'])                      
                     else:
                         step_size = group['lr'] / (1 - beta1 ** state['step'])                        
