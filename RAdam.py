@@ -9,20 +9,25 @@ class RAdam(Optimizer):
     RATE AND BEYOND(https://arxiv.org/pdf/1908.03265.pdf)`_.
     
     Arguments:
-        params (iterable): iterable of parameters to optimize or dicts defining
-            parameter groups
-        lr (float, optional): learning rate (default: 1e-3)
-        betas (Tuple[float, float], optional): coefficients used for computing
-            running averages of gradient and its square (default: (0.9, 0.999))
-        eps (float, optional): term added to the denominator to improve
-            numerical stability (default: 1e-8)
+        params (iterable):      iterable of parameters to optimize or dicts defining
+                                parameter groups
+        lr (float, optional):   learning rate (default: 1e-3)
+        betas (Tuple[float, float], optional):  coefficients used for computing
+                                                running averages of gradient and 
+                                                its square (default: (0.9, 0.999))
+        eps (float, optional):  term added to the denominator to improve
+                                numerical stability (default: 1e-8)
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        amsgrad (boolean, optional): whether to use the AMSGrad variant of this
-            algorithm from the paper `On the Convergence of Adam and Beyond`_
-            (default: False)
+        amsgrad (boolean, optional):    whether to use the AMSGrad variant of this
+                                        algorithm from the paper `On the Convergence 
+                                        of Adam and Beyond`_(default: False)
+        
+        sma_thresh:             simple moving average threshold.
+                                Length till where the variance of adaptive lr is intracable.
+                                Default: 4 (as per paper)
     """
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False, sma_thresh=5):
+                 weight_decay=0, amsgrad=False, sma_thresh=4):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -78,7 +83,6 @@ class RAdam(Optimizer):
                 beta1, beta2 = group['betas']
 
                 state['step'] += 1
-
                 old = p.data.float()
 
                 # Decay the first and second moment running average coefficient
@@ -86,7 +90,6 @@ class RAdam(Optimizer):
                 exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
 
                 buffer = self.radam_buffer[int(state['step']%10)]
-                denom = exp_avg_sq.sqrt().add_(group['eps'])
 
                 if buffer[0] == state['step']:
                     sma_t, step_size = buffer[1], buffer[2]
@@ -104,12 +107,13 @@ class RAdam(Optimizer):
                         step_size = group['lr'] / (1 - beta1 ** state['step'])                        
                     buffer[2] = step_size
 
+                if group['weight_decay'] != 0:
+                    p.data.add_(-group['weight_decay'] * group['lr'], old)
+
                 if sma_t > self.sma_thresh :
+                    denom = exp_avg_sq.sqrt().add_(group['eps'])
                     p.data.addcdiv_(-step_size, exp_avg, denom)
                 else:
                     p.data.add_(-step_size, exp_avg)
-
-                if group['weight_decay'] != 0:
-                    p.data.add_(-group['weight_decay'] * group['lr'], old)
 
         return loss
