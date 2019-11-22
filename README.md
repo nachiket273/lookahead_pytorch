@@ -33,6 +33,18 @@ Pytorch implementation of [Lookahead Optimizer](https://arxiv.org/pdf/1907.08610
   from RAdam import RAdam
   optim = RAdam(model.parameters(), lr=1e-3, weight_decay=1e-4)
   ```
+  
+ # Results
+ 
+   - Reported results of run on CIFAR-10 with 3 different seed.
+   - Used architecture ResNet-18 and trained for 90 epochs.
+   - Used lr schedule to divide learning rate by 5 after every 30 epochs.
+  
+  | Seed / Optimizer |  SGD  | Adamw | Lookahead with SGD | RAdam  | Lookahead with Radam |
+  | :----------------|:-----:|:-----:|:------------------:|:------:|---------------------:|
+  |         42       | 93.31 | 92.78 |         93.34      |  93.01 |         93.21        |
+  |         17       | 93.30 | 92.77 |         93.36      |  93.02 |         93.20        |
+  |         11       | 93.33 | 92.78 |         93.40      |  93.03 |         93.14        |
 
 
 
